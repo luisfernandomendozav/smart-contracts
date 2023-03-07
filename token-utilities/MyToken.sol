@@ -19,6 +19,21 @@ contract MyToken {
         and that are require as part of the desgin interface.
     **/
 
+    /** 
+        Historical dividend per token, how much value each token will have based on the history of revenue. 
+    **/
+    uint256 devidendPerToken;
+
+    /** 
+        This mapps the address of the token owners to the quantity of dividend that each owner has.
+    **/
+    mapping(address => uint256) dividendBalanceOf;
+
+    /** 
+        This is the dividend per token that is used to calculate the balance of dividends that each owner has.
+    **/
+    mapping(address => uint256) dividendCreditedTo;
+
     event Transfer(address indexed _from, address indexed _to, uint256 _value);
     event Approval(address indexed _owner, address indexed _spender, uint256 _value);
 
@@ -34,6 +49,24 @@ contract MyToken {
         balanceOf[msg.sender] = totalSupply;
     }
 
+    function update(address _address) internal {
+        uint256 debit = devidendPerToken - dividendCreditedTo[_address];
+        dividendBalanceOf[_address] += balanceOf[_address] * debit;
+        dividendCreditedTo[_address] = devidendPerToken;
+    }
+
+    function withdraw() public {
+        update(msg.sender);
+        uint256 amount = dividendBalanceOf[msg.sender];
+        dividendBalanceOf[msg.sender] = 0;
+        msg.sender.transfer(amount);
+
+    }
+
+    function deposit() public payable {
+        devidendPerToken += msg.value / totalSupply;
+    }
+
     function transfer(address _to, uint256 _value) public returns (bool success) {
         /** 
             This first require ensures that the sender have at least the amount of values
@@ -41,6 +74,8 @@ contract MyToken {
             why we check the balance of the msg.sender.
         **/
         require(balanceOf[msg.sender] >= _value);
+        update(msg.sender);
+        update(_to);
         
         /** 
             Then we will update our state variables, because we have to decrement the amount of
